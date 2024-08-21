@@ -706,23 +706,23 @@ dependencies = [
 [[package]]
 name = "cube-ext"
 version = "1.0.0"
+source = "git+https://github.com/cube-js/arrow-datafusion.git?rev=143554dbf09a580804c1b5effda7c76604e44953#143554dbf09a580804c1b5effda7c76604e44953"
+dependencies = [
+ "arrow 11.1.0 (git+https://github.com/cube-js/arrow-rs.git?rev=8fd2aa80114d5c0d4e6a0c370729507a4424e7b3)",
+ "chrono",
+ "datafusion-common 7.0.0 (git+https://github.com/cube-js/arrow-datafusion.git?rev=143554dbf09a580804c1b5effda7c76604e44953)",
+ "datafusion-expr 7.0.0 (git+https://github.com/cube-js/arrow-datafusion.git?rev=143554dbf09a580804c1b5effda7c76604e44953)",
+]
+
+[[package]]
+name = "cube-ext"
+version = "1.0.0"
 source = "git+https://github.com/cube-js/arrow-datafusion.git?rev=4fc9df9367b3a1be158805f763d847f6f3ae72b0#4fc9df9367b3a1be158805f763d847f6f3ae72b0"
 dependencies = [
  "arrow 11.1.0 (git+https://github.com/cube-js/arrow-rs.git?rev=d9c12d71b655d356c5a287226a763638417972e9)",
  "chrono",
  "datafusion-common 7.0.0 (git+https://github.com/cube-js/arrow-datafusion.git?rev=4fc9df9367b3a1be158805f763d847f6f3ae72b0)",
  "datafusion-expr 7.0.0 (git+https://github.com/cube-js/arrow-datafusion.git?rev=4fc9df9367b3a1be158805f763d847f6f3ae72b0)",
-]
-
-[[package]]
-name = "cube-ext"
-version = "1.0.0"
-source = "git+https://github.com/cube-js/arrow-datafusion.git?rev=bba28d60b4a048afb18944cc0ded1141437bd7c3#bba28d60b4a048afb18944cc0ded1141437bd7c3"
-dependencies = [
- "arrow 11.1.0 (git+https://github.com/cube-js/arrow-rs.git?rev=8fd2aa80114d5c0d4e6a0c370729507a4424e7b3)",
- "chrono",
- "datafusion-common 7.0.0 (git+https://github.com/cube-js/arrow-datafusion.git?rev=bba28d60b4a048afb18944cc0ded1141437bd7c3)",
- "datafusion-expr 7.0.0 (git+https://github.com/cube-js/arrow-datafusion.git?rev=bba28d60b4a048afb18944cc0ded1141437bd7c3)",
 ]
 
 [[package]]
@@ -818,7 +818,7 @@ dependencies = [
  "comfy-table 7.1.0",
  "csv",
  "cubeclient",
- "datafusion 7.0.0 (git+https://github.com/cube-js/arrow-datafusion.git?rev=bba28d60b4a048afb18944cc0ded1141437bd7c3)",
+ "datafusion 7.0.0 (git+https://github.com/cube-js/arrow-datafusion.git?rev=143554dbf09a580804c1b5effda7c76604e44953)",
  "egg",
  "futures",
  "futures-core",
@@ -877,6 +877,39 @@ checksum = "e8566979429cf69b49a5c740c60791108e86440e8be149bbea4fe54d2c32d6e2"
 [[package]]
 name = "datafusion"
 version = "7.0.0"
+source = "git+https://github.com/cube-js/arrow-datafusion.git?rev=143554dbf09a580804c1b5effda7c76604e44953#143554dbf09a580804c1b5effda7c76604e44953"
+dependencies = [
+ "ahash 0.7.8",
+ "arrow 11.1.0 (git+https://github.com/cube-js/arrow-rs.git?rev=8fd2aa80114d5c0d4e6a0c370729507a4424e7b3)",
+ "async-trait",
+ "chrono",
+ "datafusion-common 7.0.0 (git+https://github.com/cube-js/arrow-datafusion.git?rev=143554dbf09a580804c1b5effda7c76604e44953)",
+ "datafusion-data-access 1.0.0 (git+https://github.com/cube-js/arrow-datafusion.git?rev=143554dbf09a580804c1b5effda7c76604e44953)",
+ "datafusion-expr 7.0.0 (git+https://github.com/cube-js/arrow-datafusion.git?rev=143554dbf09a580804c1b5effda7c76604e44953)",
+ "datafusion-physical-expr 7.0.0 (git+https://github.com/cube-js/arrow-datafusion.git?rev=143554dbf09a580804c1b5effda7c76604e44953)",
+ "futures",
+ "hashbrown 0.12.3",
+ "itertools",
+ "lazy_static",
+ "log",
+ "num_cpus",
+ "ordered-float 2.10.1",
+ "parking_lot",
+ "parquet 11.1.0 (git+https://github.com/cube-js/arrow-rs.git?rev=8fd2aa80114d5c0d4e6a0c370729507a4424e7b3)",
+ "paste",
+ "pin-project-lite",
+ "rand",
+ "smallvec",
+ "sqlparser",
+ "tempfile",
+ "tokio",
+ "tokio-stream",
+ "uuid 0.8.2",
+]
+
+[[package]]
+name = "datafusion"
+version = "7.0.0"
 source = "git+https://github.com/cube-js/arrow-datafusion.git?rev=4fc9df9367b3a1be158805f763d847f6f3ae72b0#4fc9df9367b3a1be158805f763d847f6f3ae72b0"
 dependencies = [
  "ahash 0.7.8",
@@ -908,36 +941,14 @@ dependencies = [
 ]
 
 [[package]]
-name = "datafusion"
+name = "datafusion-common"
 version = "7.0.0"
-source = "git+https://github.com/cube-js/arrow-datafusion.git?rev=bba28d60b4a048afb18944cc0ded1141437bd7c3#bba28d60b4a048afb18944cc0ded1141437bd7c3"
+source = "git+https://github.com/cube-js/arrow-datafusion.git?rev=143554dbf09a580804c1b5effda7c76604e44953#143554dbf09a580804c1b5effda7c76604e44953"
 dependencies = [
- "ahash 0.7.8",
  "arrow 11.1.0 (git+https://github.com/cube-js/arrow-rs.git?rev=8fd2aa80114d5c0d4e6a0c370729507a4424e7b3)",
- "async-trait",
- "chrono",
- "datafusion-common 7.0.0 (git+https://github.com/cube-js/arrow-datafusion.git?rev=bba28d60b4a048afb18944cc0ded1141437bd7c3)",
- "datafusion-data-access 1.0.0 (git+https://github.com/cube-js/arrow-datafusion.git?rev=bba28d60b4a048afb18944cc0ded1141437bd7c3)",
- "datafusion-expr 7.0.0 (git+https://github.com/cube-js/arrow-datafusion.git?rev=bba28d60b4a048afb18944cc0ded1141437bd7c3)",
- "datafusion-physical-expr 7.0.0 (git+https://github.com/cube-js/arrow-datafusion.git?rev=bba28d60b4a048afb18944cc0ded1141437bd7c3)",
- "futures",
- "hashbrown 0.12.3",
- "itertools",
- "lazy_static",
- "log",
- "num_cpus",
  "ordered-float 2.10.1",
- "parking_lot",
  "parquet 11.1.0 (git+https://github.com/cube-js/arrow-rs.git?rev=8fd2aa80114d5c0d4e6a0c370729507a4424e7b3)",
- "paste",
- "pin-project-lite",
- "rand",
- "smallvec",
  "sqlparser",
- "tempfile",
- "tokio",
- "tokio-stream",
- "uuid 0.8.2",
 ]
 
 [[package]]
@@ -952,14 +963,16 @@ dependencies = [
 ]
 
 [[package]]
-name = "datafusion-common"
-version = "7.0.0"
-source = "git+https://github.com/cube-js/arrow-datafusion.git?rev=bba28d60b4a048afb18944cc0ded1141437bd7c3#bba28d60b4a048afb18944cc0ded1141437bd7c3"
+name = "datafusion-data-access"
+version = "1.0.0"
+source = "git+https://github.com/cube-js/arrow-datafusion.git?rev=143554dbf09a580804c1b5effda7c76604e44953#143554dbf09a580804c1b5effda7c76604e44953"
 dependencies = [
- "arrow 11.1.0 (git+https://github.com/cube-js/arrow-rs.git?rev=8fd2aa80114d5c0d4e6a0c370729507a4424e7b3)",
- "ordered-float 2.10.1",
- "parquet 11.1.0 (git+https://github.com/cube-js/arrow-rs.git?rev=8fd2aa80114d5c0d4e6a0c370729507a4424e7b3)",
- "sqlparser",
+ "async-trait",
+ "chrono",
+ "futures",
+ "parking_lot",
+ "tempfile",
+ "tokio",
 ]
 
 [[package]]
@@ -976,16 +989,14 @@ dependencies = [
 ]
 
 [[package]]
-name = "datafusion-data-access"
-version = "1.0.0"
-source = "git+https://github.com/cube-js/arrow-datafusion.git?rev=bba28d60b4a048afb18944cc0ded1141437bd7c3#bba28d60b4a048afb18944cc0ded1141437bd7c3"
+name = "datafusion-expr"
+version = "7.0.0"
+source = "git+https://github.com/cube-js/arrow-datafusion.git?rev=143554dbf09a580804c1b5effda7c76604e44953#143554dbf09a580804c1b5effda7c76604e44953"
 dependencies = [
- "async-trait",
- "chrono",
- "futures",
- "parking_lot",
- "tempfile",
- "tokio",
+ "ahash 0.7.8",
+ "arrow 11.1.0 (git+https://github.com/cube-js/arrow-rs.git?rev=8fd2aa80114d5c0d4e6a0c370729507a4424e7b3)",
+ "datafusion-common 7.0.0 (git+https://github.com/cube-js/arrow-datafusion.git?rev=143554dbf09a580804c1b5effda7c76604e44953)",
+ "sqlparser",
 ]
 
 [[package]]
@@ -1000,14 +1011,27 @@ dependencies = [
 ]
 
 [[package]]
-name = "datafusion-expr"
+name = "datafusion-physical-expr"
 version = "7.0.0"
-source = "git+https://github.com/cube-js/arrow-datafusion.git?rev=bba28d60b4a048afb18944cc0ded1141437bd7c3#bba28d60b4a048afb18944cc0ded1141437bd7c3"
+source = "git+https://github.com/cube-js/arrow-datafusion.git?rev=143554dbf09a580804c1b5effda7c76604e44953#143554dbf09a580804c1b5effda7c76604e44953"
 dependencies = [
  "ahash 0.7.8",
  "arrow 11.1.0 (git+https://github.com/cube-js/arrow-rs.git?rev=8fd2aa80114d5c0d4e6a0c370729507a4424e7b3)",
- "datafusion-common 7.0.0 (git+https://github.com/cube-js/arrow-datafusion.git?rev=bba28d60b4a048afb18944cc0ded1141437bd7c3)",
- "sqlparser",
+ "blake2",
+ "blake3",
+ "chrono",
+ "cube-ext 1.0.0 (git+https://github.com/cube-js/arrow-datafusion.git?rev=143554dbf09a580804c1b5effda7c76604e44953)",
+ "datafusion-common 7.0.0 (git+https://github.com/cube-js/arrow-datafusion.git?rev=143554dbf09a580804c1b5effda7c76604e44953)",
+ "datafusion-expr 7.0.0 (git+https://github.com/cube-js/arrow-datafusion.git?rev=143554dbf09a580804c1b5effda7c76604e44953)",
+ "hashbrown 0.12.3",
+ "lazy_static",
+ "md-5",
+ "ordered-float 2.10.1",
+ "paste",
+ "rand",
+ "regex",
+ "sha2",
+ "unicode-segmentation",
 ]
 
 [[package]]
@@ -1023,30 +1047,6 @@ dependencies = [
  "cube-ext 1.0.0 (git+https://github.com/cube-js/arrow-datafusion.git?rev=4fc9df9367b3a1be158805f763d847f6f3ae72b0)",
  "datafusion-common 7.0.0 (git+https://github.com/cube-js/arrow-datafusion.git?rev=4fc9df9367b3a1be158805f763d847f6f3ae72b0)",
  "datafusion-expr 7.0.0 (git+https://github.com/cube-js/arrow-datafusion.git?rev=4fc9df9367b3a1be158805f763d847f6f3ae72b0)",
- "hashbrown 0.12.3",
- "lazy_static",
- "md-5",
- "ordered-float 2.10.1",
- "paste",
- "rand",
- "regex",
- "sha2",
- "unicode-segmentation",
-]
-
-[[package]]
-name = "datafusion-physical-expr"
-version = "7.0.0"
-source = "git+https://github.com/cube-js/arrow-datafusion.git?rev=bba28d60b4a048afb18944cc0ded1141437bd7c3#bba28d60b4a048afb18944cc0ded1141437bd7c3"
-dependencies = [
- "ahash 0.7.8",
- "arrow 11.1.0 (git+https://github.com/cube-js/arrow-rs.git?rev=8fd2aa80114d5c0d4e6a0c370729507a4424e7b3)",
- "blake2",
- "blake3",
- "chrono",
- "cube-ext 1.0.0 (git+https://github.com/cube-js/arrow-datafusion.git?rev=bba28d60b4a048afb18944cc0ded1141437bd7c3)",
- "datafusion-common 7.0.0 (git+https://github.com/cube-js/arrow-datafusion.git?rev=bba28d60b4a048afb18944cc0ded1141437bd7c3)",
- "datafusion-expr 7.0.0 (git+https://github.com/cube-js/arrow-datafusion.git?rev=bba28d60b4a048afb18944cc0ded1141437bd7c3)",
  "hashbrown 0.12.3",
  "lazy_static",
  "md-5",
