@@ -78,8 +78,26 @@ export class MssqlQuery extends BaseQuery {
     return `CAST(${value} AS DATETIME2)`;
   }
 
-  public timeGroupedColumn(granularity, dimension) {
+  public timeGroupedColumn(granularity: string, dimension: string): string {
     return GRANULARITY_TO_INTERVAL[granularity](dimension);
+  }
+
+  /**
+   * Returns sql for source expression floored to timestamps aligned with
+   * intervals relative to origin timestamp point.
+   * The formula operates with seconds diffs so it won't produce human-expected dates aligned with offset date parts.
+   */
+  public dateBin(interval: string, source: string, origin: string): string {
+    const beginOfTime = this.timeStampCast('DATEFROMPARTS(1970, 1, 1)');
+
+    // Need to explicitly cast one argument of floor to float to trigger correct sign logic
+    return `DATEADD(SECOND,
+        FLOOR(
+          CAST(DATEDIFF(SECOND, ${this.timeStampCast(`'${origin}'`)}, ${source}) AS FLOAT) /
+          DATEDIFF(SECOND, ${beginOfTime}, ${this.addInterval(beginOfTime, interval)})
+        ) * DATEDIFF(SECOND, ${beginOfTime}, ${this.addInterval(beginOfTime, interval)}),
+        ${this.timeStampCast(`'${origin}'`)}
+    )`;
   }
 
   public newParamAllocator(expressionParams) {
