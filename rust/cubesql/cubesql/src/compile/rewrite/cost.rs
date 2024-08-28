@@ -1,3 +1,5 @@
+use std::{collections::HashMap, fmt::Debug, hash::Hash, marker::PhantomData, sync::Arc};
+
 use crate::{
     compile::rewrite::{
         rules::utils::granularity_str_to_int_order, CubeScanUngrouped, CubeScanWrapped,
@@ -6,9 +8,9 @@ use crate::{
     },
     transport::{MetaContext, V1CubeMetaDimensionExt},
 };
-use egg::{CostFunction, Id, Language};
-use std::sync::Arc;
+use egg::{Analysis, CostFunction, EGraph, Id, Language, RecExpr};
 
+#[derive(Debug)]
 pub struct BestCubePlan {
     meta_context: Arc<MetaContext>,
 }
@@ -16,6 +18,200 @@ pub struct BestCubePlan {
 impl BestCubePlan {
     pub fn new(meta_context: Arc<MetaContext>) -> Self {
         Self { meta_context }
+    }
+
+    pub fn initial_cost(&self, enode: &LogicalPlanLanguage, top_down: bool) -> CubePlanCost {
+        let table_scans = match enode {
+            LogicalPlanLanguage::TableScan(_) => 1,
+            _ => 0,
+        };
+
+        let non_detected_cube_scans = match enode {
+            LogicalPlanLanguage::CubeScan(_) => 1,
+            _ => 0,
+        };
+
+        let cube_scan_nodes = match enode {
+            LogicalPlanLanguage::CubeScan(_) => 1,
+            _ => 0,
+        };
+
+        let non_pushed_down_window = match enode {
+            LogicalPlanLanguage::Window(_) => 1,
+            _ => 0,
+        };
+
+        let non_pushed_down_grouping_sets = match enode {
+            LogicalPlanLanguage::GroupingSetExpr(_) => 1,
+            _ => 0,
+        };
+
+        let non_pushed_down_limit_sort = match enode {
+            LogicalPlanLanguage::Limit(_) if !top_down => 1,
+            LogicalPlanLanguage::Sort(_) if top_down => 1,
+            _ => 0,
+        };
+
+        let ast_size_inside_wrapper = match enode {
+            LogicalPlanLanguage::WrappedSelect(_) => 1,
+            _ => 0,
+        };
+
+        let wrapper_nodes = match enode {
+            LogicalPlanLanguage::CubeScanWrapper(_) => 1,
+            _ => 0,
+        };
+
+        let filter_members = match enode {
+            LogicalPlanLanguage::FilterMember(_) => 1,
+            _ => 0,
+        };
+
+        let filters = match enode {
+            LogicalPlanLanguage::Filter(_) => 1,
+            _ => 0,
+        };
+
+        let member_errors = match enode {
+            LogicalPlanLanguage::MemberError(_) => 1,
+            _ => 0,
+        };
+
+        let cube_members = match enode {
+            LogicalPlanLanguage::Measure(_) => 1,
+            LogicalPlanLanguage::Dimension(_) => 1,
+            LogicalPlanLanguage::ChangeUser(_) => 1,
+            LogicalPlanLanguage::VirtualField(_) => 1,
+            LogicalPlanLanguage::LiteralMember(_) => 1,
+            LogicalPlanLanguage::TimeDimensionGranularity(TimeDimensionGranularity(Some(_))) => 1,
+            // MemberError must be present here as well in order to preserve error priority
+            LogicalPlanLanguage::MemberError(_) => 1,
+            _ => 0,
+        };
+
+        let this_replacers = match enode {
+            LogicalPlanLanguage::OrderReplacer(_) => 1,
+            LogicalPlanLanguage::MemberReplacer(_) => 1,
+            LogicalPlanLanguage::FilterReplacer(_) => 1,
+            LogicalPlanLanguage::TimeDimensionDateRangeReplacer(_) => 1,
+            LogicalPlanLanguage::InnerAggregateSplitReplacer(_) => 1,
+            LogicalPlanLanguage::OuterProjectionSplitReplacer(_) => 1,
+            LogicalPlanLanguage::OuterAggregateSplitReplacer(_) => 1,
+            LogicalPlanLanguage::GroupExprSplitReplacer(_) => 1,
+            LogicalPlanLanguage::GroupAggregateSplitReplacer(_) => 1,
+            LogicalPlanLanguage::MemberPushdownReplacer(_) => 1,
+            LogicalPlanLanguage::EventNotification(_) => 1,
+            LogicalPlanLanguage::MergedMembersReplacer(_) => 1,
+            LogicalPlanLanguage::CaseExprReplacer(_) => 1,
+            LogicalPlanLanguage::WrapperPushdownReplacer(_) => 1,
+            LogicalPlanLanguage::WrapperPullupReplacer(_) => 1,
+            LogicalPlanLanguage::FlattenPushdownReplacer(_) => 1,
+            LogicalPlanLanguage::AggregateSplitPushDownReplacer(_) => 1,
+            LogicalPlanLanguage::AggregateSplitPullUpReplacer(_) => 1,
+            LogicalPlanLanguage::ProjectionSplitPushDownReplacer(_) => 1,
+            LogicalPlanLanguage::ProjectionSplitPullUpReplacer(_) => 1,
+            LogicalPlanLanguage::QueryParam(_) => 1,
+            // Not really replacers but those should be deemed as mandatory rewrites and as soon as
+            // there's always rewrite rule it's fine to have replacer cost.
+            // Needs to be added as alias rewrite always more expensive than original function.
+            LogicalPlanLanguage::ScalarUDFExprFun(ScalarUDFExprFun(fun))
+                if fun.as_str() == "current_timestamp" =>
+            {
+                1
+            }
+            LogicalPlanLanguage::ScalarUDFExprFun(ScalarUDFExprFun(fun))
+                if fun.as_str() == "localtimestamp" =>
+            {
+                1
+            }
+            _ => 0,
+        };
+
+        let time_dimensions_used_as_dimensions = match enode {
+            LogicalPlanLanguage::DimensionName(DimensionName(name)) => {
+                if let Some(dimension) = self.meta_context.find_dimension_with_name(name.clone()) {
+                    if dimension.is_time() {
+                        1
+                    } else {
+                        0
+                    }
+                } else {
+                    0
+                }
+            }
+            _ => 0,
+        };
+
+        let max_time_dimensions_granularity = match enode {
+            LogicalPlanLanguage::TimeDimensionGranularity(TimeDimensionGranularity(Some(
+                granularity,
+            ))) => (8 - granularity_str_to_int_order(granularity, Some(false)).unwrap_or(0)) as i64,
+            _ => 0,
+        };
+
+        let this_errors = match enode {
+            LogicalPlanLanguage::MemberErrorPriority(MemberErrorPriority(priority)) => {
+                (100 - priority) as i64
+            }
+            _ => 0,
+        };
+
+        let structure_points = match enode {
+            // TODO needed to get rid of FilterOpFilters on upper level
+            LogicalPlanLanguage::FilterOpFilters(_) => 1,
+            LogicalPlanLanguage::Join(_) => 1,
+            LogicalPlanLanguage::CrossJoin(_) => 1,
+            _ => 0,
+        };
+
+        let ast_size_without_alias = match enode {
+            LogicalPlanLanguage::AliasExpr(_) => 0,
+            LogicalPlanLanguage::AliasExprAlias(_) => 0,
+            _ => 1,
+        };
+
+        let ungrouped_nodes = match enode {
+            LogicalPlanLanguage::CubeScanUngrouped(CubeScanUngrouped(true)) => 1,
+            _ => 0,
+        };
+
+        let wrapped_select_ungrouped_scan = match enode {
+            LogicalPlanLanguage::WrappedSelectUngroupedScan(WrappedSelectUngroupedScan(true)) => 1,
+            _ => 0,
+        };
+
+        let unwrapped_subqueries = match enode {
+            LogicalPlanLanguage::Subquery(_) => 1,
+            _ => 0,
+        };
+
+        CubePlanCost {
+            replacers: this_replacers,
+            table_scans,
+            filters,
+            filter_members,
+            non_detected_cube_scans,
+            member_errors,
+            non_pushed_down_window,
+            non_pushed_down_grouping_sets,
+            non_pushed_down_limit_sort,
+            cube_members,
+            errors: this_errors,
+            time_dimensions_used_as_dimensions,
+            max_time_dimensions_granularity,
+            structure_points,
+            ungrouped_aggregates: 0,
+            wrapper_nodes,
+            wrapped_select_ungrouped_scan,
+            empty_wrappers: 0,
+            ast_size_outside_wrapper: 0,
+            ast_size_inside_wrapper,
+            cube_scan_nodes,
+            ast_size_without_alias,
+            ast_size: 1,
+            ungrouped_nodes,
+            unwrapped_subqueries,
+        }
     }
 }
 
@@ -256,21 +452,6 @@ impl CostFunction<LogicalPlanLanguage> for BestCubePlan {
     where
         C: FnMut(Id) -> Self::Cost,
     {
-        let table_scans = match enode {
-            LogicalPlanLanguage::TableScan(_) => 1,
-            _ => 0,
-        };
-
-        let non_detected_cube_scans = match enode {
-            LogicalPlanLanguage::CubeScan(_) => 1,
-            _ => 0,
-        };
-
-        let cube_scan_nodes = match enode {
-            LogicalPlanLanguage::CubeScan(_) => 1,
-            _ => 0,
-        };
-
         let ast_size_outside_wrapper = match enode {
             LogicalPlanLanguage::Aggregate(_) => 1,
             LogicalPlanLanguage::Projection(_) => 1,
@@ -285,182 +466,9 @@ impl CostFunction<LogicalPlanLanguage> for BestCubePlan {
             _ => 0,
         };
 
-        let non_pushed_down_window = match enode {
-            LogicalPlanLanguage::Window(_) => 1,
-            _ => 0,
-        };
-
-        let non_pushed_down_grouping_sets = match enode {
-            LogicalPlanLanguage::GroupingSetExpr(_) => 1,
-            _ => 0,
-        };
-
-        let non_pushed_down_limit_sort = match enode {
-            LogicalPlanLanguage::Limit(_) => 1,
-            _ => 0,
-        };
-
-        let ast_size_inside_wrapper = match enode {
-            LogicalPlanLanguage::WrappedSelect(_) => 1,
-            _ => 0,
-        };
-
-        let wrapper_nodes = match enode {
-            LogicalPlanLanguage::CubeScanWrapper(_) => 1,
-            _ => 0,
-        };
-
-        let filter_members = match enode {
-            LogicalPlanLanguage::FilterMember(_) => 1,
-            _ => 0,
-        };
-
-        let filters = match enode {
-            LogicalPlanLanguage::Filter(_) => 1,
-            _ => 0,
-        };
-
-        let member_errors = match enode {
-            LogicalPlanLanguage::MemberError(_) => 1,
-            _ => 0,
-        };
-
-        let cube_members = match enode {
-            LogicalPlanLanguage::Measure(_) => 1,
-            LogicalPlanLanguage::Dimension(_) => 1,
-            LogicalPlanLanguage::ChangeUser(_) => 1,
-            LogicalPlanLanguage::VirtualField(_) => 1,
-            LogicalPlanLanguage::LiteralMember(_) => 1,
-            LogicalPlanLanguage::TimeDimensionGranularity(TimeDimensionGranularity(Some(_))) => 1,
-            // MemberError must be present here as well in order to preserve error priority
-            LogicalPlanLanguage::MemberError(_) => 1,
-            _ => 0,
-        };
-
-        let this_replacers = match enode {
-            LogicalPlanLanguage::OrderReplacer(_) => 1,
-            LogicalPlanLanguage::MemberReplacer(_) => 1,
-            LogicalPlanLanguage::FilterReplacer(_) => 1,
-            LogicalPlanLanguage::TimeDimensionDateRangeReplacer(_) => 1,
-            LogicalPlanLanguage::InnerAggregateSplitReplacer(_) => 1,
-            LogicalPlanLanguage::OuterProjectionSplitReplacer(_) => 1,
-            LogicalPlanLanguage::OuterAggregateSplitReplacer(_) => 1,
-            LogicalPlanLanguage::GroupExprSplitReplacer(_) => 1,
-            LogicalPlanLanguage::GroupAggregateSplitReplacer(_) => 1,
-            LogicalPlanLanguage::MemberPushdownReplacer(_) => 1,
-            LogicalPlanLanguage::EventNotification(_) => 1,
-            LogicalPlanLanguage::MergedMembersReplacer(_) => 1,
-            LogicalPlanLanguage::CaseExprReplacer(_) => 1,
-            LogicalPlanLanguage::WrapperPushdownReplacer(_) => 1,
-            LogicalPlanLanguage::WrapperPullupReplacer(_) => 1,
-            LogicalPlanLanguage::FlattenPushdownReplacer(_) => 1,
-            LogicalPlanLanguage::AggregateSplitPushDownReplacer(_) => 1,
-            LogicalPlanLanguage::AggregateSplitPullUpReplacer(_) => 1,
-            LogicalPlanLanguage::ProjectionSplitPushDownReplacer(_) => 1,
-            LogicalPlanLanguage::ProjectionSplitPullUpReplacer(_) => 1,
-            LogicalPlanLanguage::QueryParam(_) => 1,
-            // Not really replacers but those should be deemed as mandatory rewrites and as soon as
-            // there's always rewrite rule it's fine to have replacer cost.
-            // Needs to be added as alias rewrite always more expensive than original function.
-            LogicalPlanLanguage::ScalarUDFExprFun(ScalarUDFExprFun(fun))
-                if fun.as_str() == "current_timestamp" =>
-            {
-                1
-            }
-            LogicalPlanLanguage::ScalarUDFExprFun(ScalarUDFExprFun(fun))
-                if fun.as_str() == "localtimestamp" =>
-            {
-                1
-            }
-            _ => 0,
-        };
-
-        let time_dimensions_used_as_dimensions = match enode {
-            LogicalPlanLanguage::DimensionName(DimensionName(name)) => {
-                if let Some(dimension) = self.meta_context.find_dimension_with_name(name.clone()) {
-                    if dimension.is_time() {
-                        1
-                    } else {
-                        0
-                    }
-                } else {
-                    0
-                }
-            }
-            _ => 0,
-        };
-
-        let max_time_dimensions_granularity = match enode {
-            LogicalPlanLanguage::TimeDimensionGranularity(TimeDimensionGranularity(Some(
-                granularity,
-            ))) => (8 - granularity_str_to_int_order(granularity, Some(false)).unwrap_or(0)) as i64,
-            _ => 0,
-        };
-
-        let this_errors = match enode {
-            LogicalPlanLanguage::MemberErrorPriority(MemberErrorPriority(priority)) => {
-                (100 - priority) as i64
-            }
-            _ => 0,
-        };
-
-        let structure_points = match enode {
-            // TODO needed to get rid of FilterOpFilters on upper level
-            LogicalPlanLanguage::FilterOpFilters(_) => 1,
-            LogicalPlanLanguage::Join(_) => 1,
-            LogicalPlanLanguage::CrossJoin(_) => 1,
-            _ => 0,
-        };
-
-        let ast_size_without_alias = match enode {
-            LogicalPlanLanguage::AliasExpr(_) => 0,
-            LogicalPlanLanguage::AliasExprAlias(_) => 0,
-            _ => 1,
-        };
-
-        let ungrouped_nodes = match enode {
-            LogicalPlanLanguage::CubeScanUngrouped(CubeScanUngrouped(true)) => 1,
-            _ => 0,
-        };
-
-        let wrapped_select_ungrouped_scan = match enode {
-            LogicalPlanLanguage::WrappedSelectUngroupedScan(WrappedSelectUngroupedScan(true)) => 1,
-            _ => 0,
-        };
-
-        let unwrapped_subqueries = match enode {
-            LogicalPlanLanguage::Subquery(_) => 1,
-            _ => 0,
-        };
-
+        let cost = self.initial_cost(enode, false);
         let initial_cost = CubePlanCostAndState {
-            cost: CubePlanCost {
-                replacers: this_replacers,
-                table_scans,
-                filters,
-                filter_members,
-                non_detected_cube_scans,
-                member_errors,
-                non_pushed_down_window,
-                non_pushed_down_grouping_sets,
-                non_pushed_down_limit_sort,
-                cube_members,
-                errors: this_errors,
-                time_dimensions_used_as_dimensions,
-                max_time_dimensions_granularity,
-                structure_points,
-                ungrouped_aggregates: 0,
-                wrapper_nodes,
-                wrapped_select_ungrouped_scan,
-                empty_wrappers: 0,
-                ast_size_outside_wrapper: 0,
-                ast_size_inside_wrapper,
-                cube_scan_nodes,
-                ast_size_without_alias,
-                ast_size: 1,
-                ungrouped_nodes,
-                unwrapped_subqueries,
-            },
+            cost,
             state: match enode {
                 LogicalPlanLanguage::CubeScanWrapped(CubeScanWrapped(true)) => {
                     CubePlanState::Wrapped
@@ -482,5 +490,225 @@ impl CostFunction<LogicalPlanLanguage> for BestCubePlan {
             })
             .finalize(enode);
         res
+    }
+}
+
+pub trait TopDownCost: Clone + Debug + PartialOrd {
+    fn add(&self, other: &Self) -> Self;
+}
+
+pub trait TopDownState<L>: Clone + Debug + Eq + Hash
+where
+    L: Language,
+{
+    /// Transforms the current state based on node's contents.
+    fn transform(&self, node: &L) -> Self;
+}
+
+/// Simple implementation of TopDownState for lack of state.
+impl<L> TopDownState<L> for ()
+where
+    L: Language,
+{
+    fn transform(&self, _: &L) -> Self {
+        ()
+    }
+}
+
+pub trait TopDownCostFunction<L, S, C>: Debug
+where
+    L: Language,
+    S: TopDownState<L>,
+    C: TopDownCost,
+{
+    /// Returns the cost for the current node based on eclass state.
+    fn cost(&self, node: &L, state: &S) -> C;
+}
+
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
+struct IdWithState<L, S>
+where
+    L: Language,
+    S: TopDownState<L>,
+{
+    id: Id,
+    state: S,
+    phantom: PhantomData<L>,
+}
+
+impl<L, S> IdWithState<L, S>
+where
+    L: Language,
+    S: TopDownState<L>,
+{
+    pub fn new(id: Id, state: S) -> Self {
+        Self {
+            id,
+            state,
+            phantom: PhantomData,
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct TopDownExtractor<'a, L, A, C, S, CF>
+where
+    L: Language,
+    A: Analysis<L>,
+    C: TopDownCost,
+    S: TopDownState<L>,
+    CF: TopDownCostFunction<L, S, C>,
+{
+    egraph: &'a EGraph<L, A>,
+    // Caches results. `None` for nodes in progress to prevent recursion
+    extract_map: HashMap<IdWithState<L, S>, Option<(usize, C)>>,
+    cost_fn: Arc<CF>,
+    root_state: S,
+}
+
+impl<'a, L, A, C, S, CF> TopDownExtractor<'a, L, A, C, S, CF>
+where
+    L: Language,
+    A: Analysis<L>,
+    C: TopDownCost,
+    S: TopDownState<L>,
+    CF: TopDownCostFunction<L, S, C>,
+{
+    pub fn new(egraph: &'a EGraph<L, A>, cost_fn: CF, root_state: S) -> Self {
+        Self {
+            egraph,
+            extract_map: HashMap::new(),
+            cost_fn: Arc::new(cost_fn),
+            root_state,
+        }
+    }
+
+    /// Returns cost and path for best plan for provided root eclass.
+    ///
+    /// If all nodes happen to be recursive, returns `None`.
+    pub fn find_best(&mut self, root: Id) -> Option<(C, RecExpr<L>)> {
+        let cost = self.extract(root, self.root_state.clone())?;
+        // TODO: MAKE OWN VERSION OF BUILD_RECEXPR
+        let mut choose_node = |id| {
+            let _ = self.extract(id, self.root_state.clone()).unwrap();
+            let id_with_state = IdWithState::new(id, self.root_state.clone());
+            let index = *self
+                .extract_map
+                .get(&id_with_state)
+                .unwrap()
+                .as_ref()
+                .map(|(index, _)| index)
+                .unwrap();
+            self.egraph[id].nodes[index].clone()
+        };
+        Some((cost, choose_node(root).build_recexpr(choose_node)))
+    }
+
+    /// Recursively extracts the cost of each node in the eclass
+    /// and returns cost of the node with least cost based on the passed state,
+    /// caching the cost together with node index inside eclass in `extract_map`.
+    ///
+    /// Yields `None` if eclass is already in progress
+    /// or all its nodes happen to be recursive.
+    fn extract(&mut self, eclass: Id, state: S) -> Option<C> {
+        let id_with_state = IdWithState::new(eclass, state);
+        if let Some(cached_index_and_cost) = self.extract_map.get(&id_with_state) {
+            // TODO: avoid cloning here?
+            return cached_index_and_cost.as_ref().map(|(_, cost)| cost.clone());
+        }
+
+        // Mark this eclass as in progress
+        self.extract_map.insert(id_with_state.clone(), None);
+
+        // Compute the cost of each node, take the minimum
+        let mut min_index = None;
+        let mut min_cost = None;
+        'nodes: for (index, node) in self.egraph[eclass].nodes.iter().enumerate() {
+            // Compute the cost of this node based on parent state
+            let this_node_cost = self.cost_fn.cost(node, &id_with_state.state);
+
+            if let Some(min_cost) = &min_cost {
+                if &this_node_cost > min_cost {
+                    continue;
+                }
+            }
+
+            // Get state for children of this node
+            let new_state = id_with_state.state.transform(node);
+
+            // Recursively get children cost
+            let mut total_node_cost = this_node_cost;
+            for child in node.children() {
+                let Some(child_cost) = self.extract(*child, new_state.clone()) else {
+                    // This path is inevitably recursive, try the next node
+                    continue 'nodes;
+                };
+                total_node_cost = total_node_cost.add(&child_cost);
+                if let Some(min_cost) = &min_cost {
+                    if &total_node_cost > min_cost {
+                        continue 'nodes;
+                    }
+                }
+            }
+
+            // If we've made it out of the loop above, we have a new min cost
+            min_index = Some(index);
+            min_cost = Some(total_node_cost);
+        }
+
+        let (Some(min_index), Some(min_cost)) = (min_index, min_cost) else {
+            // All nodes were recursive
+            return None;
+        };
+        self.extract_map
+            .insert(id_with_state, Some((min_index, min_cost.clone())));
+        Some(min_cost)
+    }
+}
+
+impl TopDownCost for CubePlanCost {
+    fn add(&self, other: &Self) -> Self {
+        self.add_child(other)
+    }
+}
+
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
+pub struct CubePlanTopDownState {
+    _wrapped: (),
+    limit: bool,
+}
+
+impl CubePlanTopDownState {
+    pub fn new() -> Self {
+        Self {
+            _wrapped: (),
+            limit: false,
+        }
+    }
+}
+
+impl TopDownState<LogicalPlanLanguage> for CubePlanTopDownState {
+    fn transform(&self, node: &LogicalPlanLanguage) -> Self {
+        let limit = match node {
+            LogicalPlanLanguage::Limit(_) => true,
+            _ => false,
+        };
+
+        Self {
+            _wrapped: (),
+            limit,
+        }
+    }
+}
+
+impl TopDownCostFunction<LogicalPlanLanguage, CubePlanTopDownState, CubePlanCost> for BestCubePlan {
+    fn cost(&self, node: &LogicalPlanLanguage, state: &CubePlanTopDownState) -> CubePlanCost {
+        let mut cost = self.initial_cost(node, true);
+
+        if !state.limit {
+            cost.non_pushed_down_limit_sort = 0;
+        }
+
+        cost
     }
 }
