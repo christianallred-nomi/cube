@@ -68,11 +68,13 @@ export class MysqlQuery extends BaseQuery {
    * The formula operates with seconds diffs so it won't produce human-expected dates aligned with offset date parts.
    */
   public dateBin(interval: string, source: string, origin: string): string {
+    const intervalFormatted = this.formatInterval(interval);
+
     return `TIMESTAMPADD(SECOND,
         FLOOR(
           TIMESTAMPDIFF(SECOND, ${this.timeStampCast(`'${origin}'`)}, ${source}) /
-          TIMESTAMPDIFF(SECOND, '1970-01-01 00:00:00', '1970-01-01 00:00:00' + INTERVAL ${this.formatInterval(interval)})
-        ) * TIMESTAMPDIFF(SECOND, '1970-01-01 00:00:00', '1970-01-01 00:00:00' + INTERVAL ${this.formatInterval(interval)}),
+          TIMESTAMPDIFF(SECOND, '1970-01-01 00:00:00', '1970-01-01 00:00:00' + INTERVAL ${intervalFormatted})
+        ) * TIMESTAMPDIFF(SECOND, '1970-01-01 00:00:00', '1970-01-01 00:00:00' + INTERVAL ${intervalFormatted}),
         ${this.timeStampCast(`'${origin}'`)}
     )`;
   }
