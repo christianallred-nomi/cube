@@ -69,7 +69,7 @@ export class BigqueryQuery extends BaseQuery {
    */
   public dateBin(interval: string, source: string, origin: string): string {
     const intervalFormatted = this.formatInterval(interval);
-    const beginOfTime = this.dateTimeCast(`'1970-01-01T00:00:00'`);
+    const beginOfTime = this.dateTimeCast('\'1970-01-01T00:00:00\'');
 
     return `${this.dateTimeCast(`'${origin}'`)} + INTERVAL ${intervalFormatted} *
       CAST(FLOOR(
