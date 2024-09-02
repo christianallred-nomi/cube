@@ -39,11 +39,11 @@ export class PostgresQuery extends BaseQuery {
    * This implementation should also work for AWS RedShift.
    */
   public dateBin(interval: string, source: string, origin: string): string {
-    return `'${origin}'::timestamp + INTERVAL '${interval}' *
+    return `('${origin}'::timestamp + INTERVAL '${interval}' *
       FLOOR(
         EXTRACT(EPOCH FROM (${source} - '${origin}'::timestamp)) /
         EXTRACT(EPOCH FROM INTERVAL '${interval}')
-      )`;
+      ))`;
   }
 
   public hllInit(sql) {

@@ -71,11 +71,11 @@ export class BigqueryQuery extends BaseQuery {
     const intervalFormatted = this.formatInterval(interval);
     const beginOfTime = this.dateTimeCast('\'1970-01-01T00:00:00\'');
 
-    return `${this.dateTimeCast(`'${origin}'`)} + INTERVAL ${intervalFormatted} *
+    return `(${this.dateTimeCast(`'${origin}'`)} + INTERVAL ${intervalFormatted} *
       CAST(FLOOR(
         DATETIME_DIFF(${source}, ${this.dateTimeCast(`'${origin}'`)}, SECOND) /
         DATETIME_DIFF(${beginOfTime} + INTERVAL ${intervalFormatted}, ${beginOfTime}, SECOND)
-      ) AS INT64)`;
+      ) AS INT64))`;
   }
 
   /**
